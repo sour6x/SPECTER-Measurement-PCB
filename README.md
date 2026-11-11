@@ -2,19 +2,8 @@
 
 A four-layer measurement and acquisition PCB developed for **SPECTER**, a prototype automated PCB diagnostic instrument using robotic probes.
 
-This is the **original design before the cost reductions**: STM32H743, AD4003, ADA4945-1 and three programmable-gain measurement channels.
+The design combines an **STM32H743 controller, AD4003 ADC, ADA4945-1 differential driver and three programmable-gain measurement channels**.
 
-
-![Supplied 3D view of the measurement PCB](Images/3D-view.png)
-
-## Design views and project files
-
-- [Schematic](Images/Schematic/SCBiS.svg)
-- [PCB front view](Images/PCB/front.svg) | [PCB back view](Images/PCB/back.svg)
-- [Project report](Docs/Measurement-PCB-Report.md)
-- [Download KiCad project](SPECTER-KiCad-Project.zip)
-
-Download and extract the KiCad project ZIP, then open `SCBiS.kicad_pro` in KiCad 10. Keep the extracted files and local libraries together. Standard KiCad 3D models are also required. The supplied 3D image has not been checked against this exact board revision; the schematic and PCB SVGs were exported from the included files.
 ## Purpose
 
 The board receives signals from the probe system, provides input conditioning and programmable gain, selects a measurement path and digitizes its response. An STM32 controller handles channel control, acquisition timing, processing and communication with the rest of SPECTER.
@@ -80,7 +69,7 @@ flowchart TD
     STM -.->|"Via U12 / U13 / U14"| ZPGA
 ```
 
-Each measurement path has its own conditioning and programmable-gain stage, but the differential driver and ADC are **shared**. K4-K6 select which PGA output reaches the driver. This revision uses relays for that selection; it does not contain the TMUX1204 introduced in the later budget board.
+Each measurement path has its own conditioning and programmable-gain stage, but the differential driver and ADC are **shared**. K4-K6 select which PGA output reaches the driver. Relays provide channel selection between the programmable-gain stages and the shared ADC driver.
 
 Separate front ends do not provide simultaneous digitization. Firmware must coordinate relay states, gain changes, settling and conversion timing. The current-path relay K7 is driven through a U3 channel whose input is connected to the 5 V power-good net in this saved revision.
 
@@ -116,7 +105,15 @@ Use KiCad pad numbers to establish orientation, rather than assuming left and ri
 
 J2 and J3 are two-wire signal connectors, not ESP32 or Raspberry Pi power outputs. Cross TX to RX and provide the required common-ground connection separately.
 
-**The older probe-return arrangement differs from the budget board.** In this saved PCB, `return_probe` and `crnt_return` each connect only to their respective connector pad; they are not internally tied to GND. The complete external return wiring must therefore be defined and checked before using the measurement paths.
+In the saved PCB, `return_probe` and `crnt_return` each connect only to their respective connector pad; they are not internally tied to GND. The complete external return wiring must therefore be defined and checked before using the measurement paths.
+
+## Measurement modes
+
+- **DC voltage and current:** evaluate continuity and resistive faults by comparing a controlled excitation with the measured response. Depending on the test connection, the response can indicate a short, an open circuit or increased path resistance.
+- **AC response:** evaluate frequency-dependent impedance using excitation from the signal-generation subsystem.
+- **Fault classification:** compare readings with the expected response of the selected fault-PCB path. A single reading does not uniquely distinguish a board fault from poor probe contact or an incorrect test connection.
+
+Resistance calculations use the measured voltage and current (`R = V / I`), with probe/contact effects accounted for. Impedance calculations additionally require the excitation frequency and the relevant amplitude/phase information. These are firmware and calibration tasks, not automatic functions of the PCB alone.
 
 ## Firmware responsibilities
 
@@ -131,22 +128,22 @@ SWD through J1 provides a programming and debugging interface. USB operation req
 
 ## Prototype status and scope
 
-This repository description documents the original hardware architecture. It does not establish measured accuracy, successful acquisition at the ADC's maximum rate, immunity to interference or complete fault-detection performance.
+This repository description documents the hardware architecture. It does not establish measured accuracy, successful acquisition at the ADC's maximum rate, immunity to interference or complete fault-detection performance.
 
 The wider SPECTER prototype targets a controlled fault PCB. The intended impedance frequency range is 1 kHz-100 kHz, with a magnitude-accuracy target of +/-2% after calibration. These are system goals, not verified results for this revision.
 
-Initial multimeter readings and assembly photographs from the later cost-reduced board do **not** validate this older design. End-to-end checks must cover the probe returns, input ranges, gain settings, reference levels, ADC-driver behavior, power sequencing and firmware before reporting performance.
+End-to-end checks must cover the probe returns, input ranges, gain settings, reference levels, ADC-driver behavior, power sequencing and firmware before reporting performance.
 
 ## PCB and source files
 
 - Four copper layers.
-- Original STM32H743 / AD4003 / ADA4945-1 architecture.
+- STM32H743 / AD4003 / ADA4945-1 architecture.
 - Seven relay channels and three LTC6910 programmable-gain stages.
 - KiCad project: `SCBiS.kicad_pro`.
 - Schematic: `SCBiS.kicad_sch` and the additional schematic sheets supplied with the project.
 - Board: `SCBiS.kicad_pcb`.
 
-Keep the project-local footprint and symbol libraries with the source files. The reference for this README is the saved 24 October 2026 routing/DFM revision of the original circuit, before the cost-reduction redesign.
+Keep the project-local footprint and symbol libraries with the source files. The reference for this README is the saved 24 October 2026 routing/DFM revision.
 
 ```text
 PCB SHA-256: b371d0481f8071126b6a58f23fe88a301be0a6cb624ea9d2b35b959b8cf2d500
@@ -166,5 +163,3 @@ PCB SHA-256: b371d0481f8071126b6a58f23fe88a301be0a6cb624ea9d2b35b959b8cf2d500
 - [TPS6216x — buck converter datasheet](https://www.ti.com/lit/ds/symlink/tps62163.pdf)
 - [TPS7A20 — LDO documentation](https://www.ti.com/product/TPS7A20)
 - [MAX17608 — input protection datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX17608-MAX17610.pdf)
-
-
